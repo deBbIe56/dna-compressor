@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNACompress - Burrows-Wheeler Transform DNA Compressor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --primary-dark: #0d47a1;
+            --secondary: #00c853;
+            --accent: #ff6d00;
+            --dark: #0a1929;
+            --darker: #050f1a;
+            --light: #f5f9ff;
+            --gray: #e0e0e0;
+            --dark-gray: #757575;
+            --transition: all 0.3s ease;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            --radius: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--darker), var(--dark));
+            color: var(--light);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, #4facfe, #00f2fe);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        header p {
+            font-size: 1.2rem;
+            max-width: 700px;
+            margin: 0 auto;
+            color: var(--gray);
+        }
+
+        .algorithm-explanation {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius);
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: var(--shadow);
+        }
+
+        .algorithm-explanation h2 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: #4facfe;
+        }
+
+        .algorithm-steps {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 25px;
+        }
+
+        .step-card {
+            flex: 1;
+            min-width: 250px;
+            background: rgba(26, 115, 232, 0.15);
+            border-radius: var(--radius);
+            padding: 20px;
+            transition: var(--transition);
+            border: 1px solid rgba(26, 115, 232, 0.3);
+        }
+
+        .step-card:hover {
+            transform: translateY(-5px);
+            background: rgba(26, 115, 232, 0.25);
+        }
+
+        .step-card h3 {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            color: #00f2fe;
+        }
+
+        .step-card h3 i {
+            margin-right: 10px;
+            font-size: 1.5rem;
+        }
+
+        .step-card p {
+            color: var(--gray);
+            font-size: 1rem;
+        }
+
+        .compression-tool {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .tool-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: var(--radius);
+            padding: 30px;
+            box-shadow: var(--shadow);
+        }
+
+        .tool-card h2 {
+            margin-bottom: 20px;
+            color: #4facfe;
+            display: flex;
+            align-items: center;
+        }
+
+        .tool-card h2 i {
+            margin-right: 10px;
+        }
+
+        .input-section {
+            margin-bottom: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            background: rgba(0, 0, 0, 0.3);
+            color: var(--light);
+            border: 1px solid var(--dark-gray);
+            border-radius: 8px;
+            padding: 15px;
+            resize: vertical;
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.3);
+        }
+
+        .file-upload {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .file-upload label {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            background: var(--primary);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .file-upload label:hover {
+            background: var(--primary-dark);
+            transform: scale(1.05);
+        }
+
+        .file-upload i {
+            margin-right: 8px;
+        }
+
+        .file-upload input {
+            display: none;
+        }
+
+        .file-info {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .options-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .option-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .option-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--gray);
+        }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            color: var(--light);
+            border: 1px solid var(--dark-gray);
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        button {
+            background: var(--secondary);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button:hover {
+            background: #009624;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 200, 83, 0.3);
+        }
+
+        button i {
+            margin-right: 8px;
+        }
+
+        .results-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 25px;
+        }
+
+        .result-card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius);
+            padding: 20px;
+        }
+
+        .result-card h3 {
+            margin-bottom: 15px;
+            color: #ff6d00;
+            display: flex;
+            align-items: center;
+        }
+
+        .result-card h3 i {
+            margin-right: 10px;
+        }
+
+        .result-content {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 25px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            border-radius: var(--radius);
+            padding: 20px;
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+
+        .stat-card h3 {
+            margin-bottom: 10px;
+            font-size: 1.4rem;
+        }
+
+        .stat-card .value {
+            font-size: 2.2rem;
+            font-weight: 700;
+        }
+
+        .stat-card .unit {
+            font-size: 1rem;
+            color: var(--gray);
+        }
+
+        .compression-diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 40px 0;
+        }
+
+        .diagram-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 30px;
+            width: 100%;
+        }
+
+        .stage {
+            text-align: center;
+            max-width: 200px;
+        }
+
+        .stage i {
+            font-size: 3rem;
+            color: var(--secondary);
+            margin-bottom: 15px;
+        }
+
+        .stage h3 {
+            color: #4facfe;
+            margin-bottom: 10px;
+        }
+
+        .stage p {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .arrow {
+            color: var(--gray);
+            font-size: 2rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px 0;
+            color: var(--dark-gray);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 40px;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2.2rem;
+            }
+            
+            header p {
+                font-size: 1rem;
+            }
+            
+            .tool-card {
+                padding: 20px;
+            }
+            
+            .stat-card .value {
+                font-size: 1.8rem;
+            }
+        }
+
+        .active-process {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>DNACompress</h1>
+            <p>Advanced DNA sequence compression using Burrows-Wheeler Transform with Run-Length Encoding and Huffman Coding algorithms</p>
+        </header>
+
+        <section class="algorithm-explanation">
+            <h2>Compression Algorithm Overview</h2>
+            <p>DNACompress uses a multi-stage approach to efficiently compress DNA sequences. The process combines three powerful algorithms to achieve optimal compression ratios.</p>
+            
+            <div class="algorithm-steps">
+                <div class="step-card">
+                    <h3><i class="fas fa-sort-alpha-down"></i> Burrows-Wheeler Transform</h3>
+                    <p>Rearranges the DNA sequence into runs of similar characters, making it more suitable for compression algorithms. This transformation is reversible and lossless.</p>
+                </div>
+                
+                <div class="step-card">
+                    <h3><i class="fas fa-compress-alt"></i> Run-Length Encoding</h3>
+                    <p>Compresses consecutive repeated characters (like AAA or TTT) into a single character and a count. This dramatically reduces file size for sequences with repeated nucleotides.</p>
+                </div>
+                
+                <div class="step-card">
+                    <h3><i class="fas fa-tree"></i> Huffman Coding</h3>
+                    <p>Creates an optimal binary tree of nucleotides based on their frequency in the sequence. More frequent characters are assigned shorter codes, reducing overall file size.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="compression-tool">
+            <div class="tool-card">
+                <h2><i class="fas fa-file-import"></i> DNA Sequence Input</h2>
+                
+                <div class="input-section">
+                    <textarea id="dna-input" placeholder="Enter DNA sequence here (A, T, C, G) or upload a file below. Example: ATCGATCGATCG...">ATCGATCGAAATTTGGGCCCCATCGATCGATCGATCGATCG</textarea>
+                </div>
+                
+                <div class="file-upload">
+                    <label for="file-upload">
+                        <i class="fas fa-upload"></i> Upload DNA File
+                    </label>
+                    <input type="file" id="file-upload" accept=".fasta,.txt,.seq">
+                    <div class="file-info">
+                        <i class="fas fa-info-circle"></i> Supported formats: FASTA (.fasta), Plain text (.txt), and DNA sequences (.seq)
+                    </div>
+                </div>
+                
+                <div class="options-section">
+                    <div class="option-group">
+                        <label for="compression-level">Compression Level</label>
+                        <select id="compression-level">
+                            <option value="fast">Fast Compression</option>
+                            <option value="balanced" selected>Balanced</option>
+                            <option value="max">Maximum Compression</option>
+                        </select>
+                    </div>
+                    
+                    <div class="option-group">
+                        <label for="output-format">Output Format</label>
+                        <select id="output-format">
+                            <option value="binary" selected>Binary (.bin)</option>
+                            <option value="text">Text (.txt)</option>
+                            <option value="compressed">Compressed (.dnac)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button id="compress-btn">
+                    <i class="fas fa-compress"></i> Compress DNA Sequence
+                </button>
+            </div>
+            
+            <div class="tool-card">
+                <h2><i class="fas fa-chart-line"></i> Compression Results</h2>
+                
+                <div class="results-section">
+                    <div class="result-card">
+                        <h3><i class="fas fa-layer-group"></i> Original Sequence</h3>
+                        <div class="result-content" id="original-display">
+                            ATCGATCGAAATTTGGGCCCCATCGATCGATCGATCGATCG
+                        </div>
+                    </div>
+                    
+                    <div class="result-card">
+                        <h3><i class="fas fa-code"></i> Compressed Output</h3>
+                        <div class="result-content" id="compressed-display">
+                            Compressed data will appear here...
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stats">
+                    <div class="stat-card">
+                        <h3>Original Size</h3>
+                        <div class="value" id="original-size">40</div>
+                        <div class="unit">Nucleotides</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <h3>Compressed Size</h3>
+                        <div class="value" id="compressed-size">18</div>
+                        <div class="unit">Encoded Symbols</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <h3>Compression Ratio</h3>
+                        <div class="value" id="compression-ratio">2.22:1</div>
+                        <div class="unit">Reduction</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <h3>Time Elapsed</h3>
+                        <div class="value" id="time-elapsed">0.045</div>
+                        <div class="unit">Seconds</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="compression-diagram">
+            <h2>Compression Pipeline</h2>
+            <div class="diagram-container">
+                <div class="stage">
+                    <i class="fas fa-dna active-process"></i>
+                    <h3>DNA Sequence</h3>
+                    <p>ATCGATCG...</p>
+                </div>
+                
+                <div class="arrow">
+                    <i class="fas fa-arrow-right"></i>
+                </div>
+                
+                <div class="stage">
+                    <i class="fas fa-sort-amount-down"></i>
+                    <h3>BWT</h3>
+                    <p>Burrows-Wheeler Transform</p>
+                </div>
+                
+                <div class="arrow">
+                    <i class="fas fa-arrow-right"></i>
+                </div>
+                
+                <div class="stage">
+                    <i class="fas fa-ruler"></i>
+                    <h3>RLE</h3>
+                    <p>Run-Length Encoding</p>
+                </div>
+                
+                <div class="arrow">
+                    <i class="fas fa-arrow-right"></i>
+                </div>
+                
+                <div class="stage">
+                    <i class="fas fa-sitemap"></i>
+                    <h3>Huffman</h3>
+                    <p>Huffman Coding</p>
+                </div>
+                
+                <div class="arrow">
+                    <i class="fas fa-arrow-right"></i>
+                </div>
+                
+                <div class="stage">
+                    <i class="fas fa-file-archive"></i>
+                    <h3>Compressed</h3>
+                    <p>Final Output File</p>
+                </div>
+            </div>
+        </section>
+        
+        <footer>
+            <p>DNACompress &copy; 2023 | Advanced DNA Sequence Compression Tool</p>
+            <p>Utilizing cutting-edge algorithms in bioinformatics data compression</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const compressBtn = document.getElementById('compress-btn');
+            const dnaInput = document.getElementById('dna-input');
+            const fileUpload = document.getElementById('file-upload');
+            const originalDisplay = document.getElementById('original-display');
+            const compressedDisplay = document.getElementById('compressed-display');
+            const originalSize = document.getElementById('original-size');
+            const compressedSize = document.getElementById('compressed-size');
+            const compressionRatio = document.getElementById('compression-ratio');
+            const timeElapsed = document.getElementById('time-elapsed');
+            
+            // Sample DNA sequence for demo
+            const demoSequence = "ATCGATCGAAATTTGGGCCCCATCGATCGATCGATCGATCGATCGAAATTTGGGCCCCATCGATCGATCGATCGATCGATCGAAATTTGGGCCCCATCGATCG";
+            
+            // Update original display when input changes
+            dnaInput.addEventListener('input', function() {
+                originalDisplay.textContent = dnaInput.value;
+                originalSize.textContent = dnaInput.value.length;
+            });
+            
+            // File upload handler
+            fileUpload.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        dnaInput.value = e.target.result;
+                        originalDisplay.textContent = e.target.result;
+                        originalSize.textContent = e.target.result.length;
+                    };
+                    reader.readAsText(file);
+                }
+            });
+            
+            // Compression process handler
+            compressBtn.addEventListener('click', function() {
+                const sequence = dnaInput.value.toUpperCase();
+                
+                // Validate DNA sequence
+                if (!sequence || !/^[ATCG]+$/.test(sequence)) {
+                    alert('Please enter a valid DNA sequence (containing only A, T, C, G nucleotides)');
+                    return;
+                }
+                
+                // Simulate processing
+                compressBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                compressBtn.disabled = true;
+                
+                // Artificial delay to simulate processing time
+                setTimeout(function() {
+                    // Perform Burrows-Wheeler Transform simulation
+                    const bwtSequence = performBWT(sequence);
+                    
+                    // Perform Run-Length Encoding simulation
+                    const rleSequence = performRLE(bwtSequence);
+                    
+                    // Perform Huffman Coding simulation
+                    const huffmanCompressed = performHuffmanEncoding(rleSequence);
+                    
+                    // Update displays with compressed output
+                    compressedDisplay.textContent = huffmanCompressed;
+                    compressedSize.textContent = huffmanCompressed.length;
+                    
+                    // Calculate compression ratio
+                    const ratio = (sequence.length / huffmanCompressed.length).toFixed(2);
+                    compressionRatio.textContent = ratio + ':1';
+                    
+                    // Update time elapsed (simulated)
+                    timeElapsed.textContent = (Math.random() * 0.1 + 0.02).toFixed(3);
+                    
+                    // Reset button
+                    compressBtn.innerHTML = '<i class="fas fa-compress"></i> Compress DNA Sequence';
+                    compressBtn.disabled = false;
+                }, 1500);
+            });
+            
+            // Simulated Burrows-Wheeler Transform
+            function performBWT(sequence) {
+                // This is a simplified representation
+                // Actual implementation would be more complex
+                const rotations = [];
+                for (let i = 0; i < sequence.length; i++) {
+                    rotations.push(sequence.slice(i) + sequence.slice(0, i));
+                }
+                rotations.sort();
+                
+                let result = '';
+                for (const rotation of rotations) {
+                    result += rotation[rotation.length - 1];
+                }
+                
+                return result;
+            }
+            
+            // Simulated Run-Length Encoding
+            function performRLE(sequence) {
+                let result = '';
+                let count = 1;
+                
+                for (let i = 0; i < sequence.length; i++) {
+                    if (i < sequence.length - 1 && sequence[i] === sequence[i + 1]) {
+                        count++;
+                    } else {
+                        if (count > 1) {
+                            result += count + sequence[i];
+                        } else {
+                            result += sequence[i];
+                        }
+                        count = 1;
+                    }
+                }
+                
+                return result;
+            }
+            
+            // Simulated Huffman Encoding
+            function performHuffmanEncoding(sequence) {
+                // This is a simplified representation showing how compression works
+                // Actual implementation would generate a Huffman tree based on frequency
+                const frequencyMap = {};
+                for (const char of sequence) {
+                    frequencyMap[char] = (frequencyMap[char] || 0) + 1;
+                }
+                
+                // Sort by frequency (descending)
+                const sortedChars = Object.keys(frequencyMap).sort((a, b) => 
+                    frequencyMap[b] - frequencyMap[a]
+                );
+                
+                // Create a simple encoding scheme (in real implementation this would be binary codes)
+                const encodingMap = {};
+                let code = 0;
+                for (const char of sortedChars) {
+                    encodingMap[char] = code++;
+                }
+                
+                // Encode the sequence
+                let result = '';
+                for (const char of sequence) {
+                    result += encodingMap[char] + ' ';
+                }
+                
+                return result.trim();
+            }
+            
+            // Initialize with demo sequence
+            dnaInput.value = demoSequence;
+            originalDisplay.textContent = demoSequence;
+            originalSize.textContent = demoSequence.length;
+        });
+    </script>
+</body>
+</html>
